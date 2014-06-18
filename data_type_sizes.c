@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+/* author - Naveen Raju */
 int main()
 {
    printf("sizes \n int : %u", sizeof(int));
