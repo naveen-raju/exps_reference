@@ -25,12 +25,12 @@ int main()
 
    if (pos[0][0] < pos[1][0]) {
       dist = pos[1][0] - pos[0][0];
-      while (dist > 0) {
+      while (dist) {
          cout << "DOWN\n";
          dist--;
       }
-   } else if (pos[0][0] > pos[1][0]) {
-      dist = pos[1][0] - pos[0][0];
+   } else {
+      dist = pos[0][0] - pos[1][0];
       while (dist) {
          cout << "UP\n";
          dist--;
@@ -40,15 +40,15 @@ int main()
    //perform left or right movement
    if (pos[0][1] < pos[1][1]) {
       dist = pos[1][1] - pos[0][1];
-      while (dist > 0) {
-         cout << "LEFT\n";
+      while (dist) {
+         cout << "RIGHT\n";
          dist--;
       }
 
-   } else if (pos[0][1] > pos[1][1]) {
+   } else {
       dist = pos[0][1] - pos[1][1];
       while (dist) {
-         cout << "RIGHT\n";
+         cout << "LEFT\n";
          dist--;
       }
    }
