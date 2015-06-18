@@ -29,7 +29,7 @@ public class JnaTest {
          *
          * @param data
          */
-        void print_data(BigData data);
+        Pointer get_client();
     }
     
     
@@ -37,13 +37,20 @@ public class JnaTest {
     public static void main(String[] args) {
         CLibrary INSTANCE = (CLibrary) Native.loadLibrary("/home/bigobj_code/clib/libhello.so", CLibrary.class);
         //Native.setProtected(true);
-        
+       
         System.out.println("Inside main");
+        /*
         BigData netobj = new BigData();
         netobj.data = new Memory(256 * 2);
         netobj.len = 1;
         netobj.data.setString(0, "Test : First String ");
         netobj.data.setString(256, "Test : Second String");
-        INSTANCE.print_data(netobj);
+        */
+        Pointer client = INSTANCE.get_client();
+        if (client == null) {
+            System.out.println("failed to get client");
+        } else {
+            System.out.println("succeed to get client");
+        }
     }
 }
