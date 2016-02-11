@@ -1,0 +1,201 @@
+#!/bin/bash
+
+# author: Giridhar Bhujanga ( giridhar.bhujanga@hp.com )
+# Usage:
+#          ./this_file.sh -u <URL> -t <number-of-threads>
+# Example: ./this_file.sh -u http://15.110.12.100/directory/files/boot.iso -t 8
+# Make sure <number-of-threads> is a number between 4 and 24.
+
+# Q: What will happen when we run the above command ?
+# A: boot.iso in the above URL will get downloaded.
+# Q: What is the advantage ?
+# A: It will download '8' different chunks of the same file 
+#    in parallel, and later on, it will merge all the chunks
+#    to get back your original file.
+#    This should definitely speed up your downloads
+#    If things are still slow, try this before running this:
+#      "unset http_proxy"
+#      "unset ftp_proxy"
+# I highly recommend you to run "md5sum <downloaded-file>"
+# just to make sure integrity is maintained
+############################################################
+
+uflag=
+tflag=
+while getopts 'u:t:' OPTION
+do
+	case $OPTION in
+		u)	uflag="$OPTARG"
+			;;
+		t)	tflag="$OPTARG"
+			;;
+		?)	printf "Usage: %s -u URL -t Total-Number-Of-Parallel-Threads args\n" $(basename $0) >&2
+			exit 2
+			;;
+	esac
+done
+
+if [ "$#" = "0" ]
+then
+	echo "----------------------------------------------------------------------------"
+	echo "Please provide two arguments: -u <URL> and -t <parallel-threads>"
+	echo "----------------------------------------------------------------------------"
+	echo " @ Example:"
+	echo "   # parallel_download -u http://15.110.12.100/directory/files/DVD.iso -t 8"
+	echo "----------------------------------------------------------------------------"
+	echo " @ If you are downloading with in the company network, I'd highly"
+	echo " @ recommend you do this before you start download:"
+	echo "   \"unset http_proxy\""
+	echo "----------------------------------------------------------------------------"
+	echo " @ If you are downloading something outside the company network, you may"
+	echo " @ want to do this before you start the download:"
+	echo "   \"export http_proxy=http://web-proxy.atlanta.hp.com:8080\""
+	echo "----------------------------------------------------------------------------"
+	exit 0
+fi
+
+shift $(($OPTIND - 1))
+
+
+# comment this out since we are parsing command line arguments
+# url=$1
+url=$uflag
+
+unset http_proxy
+unset ftp_proxy
+
+new_path=$( echo "$url" | perl -MURI -le 'chomp($url = <>); print URI->new($url)->path' )
+actual_file_name=`basename $(echo $new_path)`
+
+len=`curl -I $url 2> /dev/null|grep "Content-Length:"|tr -d ' '|cut -d ':' -f2|tr -d "^M"`
+
+STRING=$len
+
+randomString=`od -An -N2 -i /dev/urandom|tr -d ' '`
+newString="file_$randomString"
+
+rm -rf $newString*
+
+# comment this out since we are parsing command line arguments
+# total_parallel_threads=$2
+total_parallel_threads=$tflag
+
+major_threads_number=$[$total_parallel_threads-1]
+last_thread_number=1
+
+echo "URL: $url"
+echo "Number of Parallel Threads: $total_parallel_threads"
+
+if [ "$total_parallel_threads" -le 3 ]
+then
+	echo "Please enter the number of threads greater than or equal to 4"
+	exit 2
+fi
+
+if [ "$total_parallel_threads" -ge 25 ]
+then
+	echo "Please enter the number of threads less than or equal to 24"
+	exit 2
+fi
+
+
+# first, strip underscores
+CLEAN=${STRING//_/}
+# next, replace spaces with underscores
+CLEAN=${CLEAN// /_}
+# now, clean out anything that's not alphanumeric or an underscore
+CLEAN=${CLEAN//[^a-zA-Z0-9_]/}
+# finally, lowercase with TR
+CLEAN=`echo -n $CLEAN | tr A-Z a-z`
+
+if [[ $CLEAN -le 0 ]]
+then
+	echo "The URL that you have provided: [$url] is Not valid. Please specifiy a valid URL !!"
+	exit 0
+fi
+
+echo "content length = $CLEAN"
+chunk_length=$[$CLEAN/$major_threads_number]
+echo "chunk-size = $chunk_length"
+major_length=$[$chunk_length*$major_threads_number]
+echo "major length = $major_length"
+remaining_length=$[$CLEAN-$major_length]
+echo "remaining length = $remaining_length"
+total=$[$remaining_length+$major_length]
+echo "confirmation : $major_length (major) + $r (remaining)= $total"
+
+start=0
+end=0
+
+for(( z=1; z<=$total_parallel_threads; z++ ))
+do
+	rm -rf $newString$z
+done
+
+time_start=`date +"%s"`
+
+echo "Start Time = $time_start"
+
+for(( i=0; i<major_threads_number; i++ ))
+do
+	i_plus_one=$[$i+1]
+	file_name=$newString$i_plus_one
+	start=$[$chunk_length*$i]
+	end=$[$start+$chunk_length-1]
+	curl --output $file_name --range $start-$end $url &
+done
+
+file_name=$newString$total_parallel_threads
+start=$[$major_length]
+end=$[$major_length+$remaining_length-1]
+curl --output $file_name --range $start-$end $url &
+
+wait
+
+> $actual_file_name
+
+for(( j=1; j<=total_parallel_threads; j++ ))
+do
+	cat $newString$j >> $actual_file_name
+done
+
+time_end=`date +"%s"`
+
+echo "End Time = $time_end"
+total_time_taken_secs=$[$time_end-$time_start]
+total_time_taken_mins=`calc $total_time_taken_secs/60`
+total_time_taken_hrs=`calc $total_time_taken_mins/60`
+echo "------------------------------------------------------------------------"
+echo "Time Taken to Download = [ $total_time_taken_secs secs ] or [ $total_time_taken_mins mins ] or [ $total_time_taken_hrs hrs ]"
+echo "------------------------------------------------------------------------"
+
+if [[ $total_time_taken_secs -le 0 ]]
+then
+	echo "Download got over very quickly ! Exiting..."
+	cwd=`pwd`
+	echo "Your downloaded file is: $cwd/$actual_file_name"
+
+	rm -rfv $newString* 
+	exit 0
+fi
+
+Bytes=$CLEAN
+KBytes=`calc $CLEAN/1024`
+transfer_rate_KB_per_sec=`calc $KBytes/$total_time_taken_secs`
+
+MBytes=`calc $KBytes/1024`
+transfer_rate_MB_per_sec=`calc $MBytes/$total_time_taken_secs`
+
+echo "Average Transfer Rate = [ $transfer_rate_KB_per_sec KB/sec ] or [ $transfer_rate_MB_per_sec MB/sec ]"
+echo "------------------------------------------------------------------------"
+
+for(( z=1; z<=$total_parallel_threads; z++ ))
+do
+	rm -rf $newString$z
+done
+
+cwd=`pwd`
+echo "Your downloaded file is: $cwd/$actual_file_name"
+
+rm -rfv $newString*
+exit 0
