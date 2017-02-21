@@ -1,0 +1,3 @@
+probe kernel.function("vfs_unlink") {
+    printf("file %s, process name %s, pid %d\n", d_name($dentry), execname(), pid());
+}
