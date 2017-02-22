@@ -41,8 +41,6 @@ int main(int argc, char *argv[])
          continue;
       }
       
-      if (!S_ISREG(buf.st_mode)) continue;
-
       if (difftime(sb.st_mtime, buf.st_mtime) < min_diftime) {
          sprintf(fname, "%s", dentry->d_name);
          min_diftime = difftime(sb.st_mtime, buf.st_mtime);
@@ -50,8 +48,6 @@ int main(int argc, char *argv[])
       }
    }
 
-   chdir(cwdir);
-   printf("Current working  directory %s " , cwdir);
    printf("Newest file in the dir %s is %s \n", argv[1], fname);
    if (count == 0) return 0;
    return 0;

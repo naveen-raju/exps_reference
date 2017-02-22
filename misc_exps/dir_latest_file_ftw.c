@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <linux/limits.h>
 #include <time.h>
@@ -35,7 +36,7 @@ int main(int argc, char *argv[])
    sprintf(dir_path, "%s", argv[1]);
    stat(dir_path, &sb);
    memcpy(&dir_mtime, &sb.st_mtime ,sizeof(time_t));
-   while(nftw(dir_path, get_latest_file, 10, flags) > 0);
+   while(nftw(dir_path, (__nftw_func_t)get_latest_file, 10, flags) > 0);
    printf("Latest file in the directory %s is %s , Total files:%d",dir_path, 
          pathname, count);
    return 0;
